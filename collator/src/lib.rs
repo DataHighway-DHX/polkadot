@@ -118,7 +118,11 @@ impl fmt::Display for Error {
 pub type PolkadotClient<B, E, R> = sc_client::Client<B, E, Block, R>;
 
 /// Something that can build a `ParachainContext`.
-pub trait BuildParachainContext {
+///
+/// By adding a generic type PC to this trait, we can embed the actual type
+/// of the PolkadotClient into the ParachainContext, whatever type that ends
+/// up being. If not required, this should be safe to ignore.
+pub trait BuildParachainContext<PC = ()> {
 	/// The parachain context produced by the `build` function.
 	type ParachainContext: self::ParachainContext;
 
