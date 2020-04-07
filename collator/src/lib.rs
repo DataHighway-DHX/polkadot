@@ -118,15 +118,12 @@ impl fmt::Display for Error {
 pub type PolkadotClient<B, E, R> = sc_client::Client<B, E, Block, R>;
 
 /// Something that can build a `ParachainContext`.
-///
-/// This trait is parametric on `B, E, R` so that it is possible for
-/// `type ParachainContext` to also be parametric on those types.
-pub trait BuildParachainContext<B, E, R> {
+pub trait BuildParachainContext {
 	/// The parachain context produced by the `build` function.
 	type ParachainContext: self::ParachainContext;
 
 	/// Build the `ParachainContext`.
-	fn build<SP, Extrinsic>(
+	fn build<B, E, R, SP, Extrinsic>(
 		self,
 		client: Arc<PolkadotClient<B, E, R>>,
 		spawner: SP,
@@ -212,7 +209,7 @@ pub async fn collate<P>(
 	Ok(collation)
 }
 
-fn build_collator_service<S, P, Extrinsic, B, E, R>(
+fn build_collator_service<S, P, Extrinsic>(
 	service: (S, polkadot_service::FullNodeHandles),
 	para_id: ParaId,
 	key: Arc<CollatorPair>,
@@ -236,12 +233,10 @@ fn build_collator_service<S, P, Extrinsic, B, E, R>(
 		S::CallExecutor: service::CallExecutor<service::Block>,
 		// Rust bug: https://github.com/rust-lang/rust/issues/24159
 		S::SelectChain: service::SelectChain<service::Block>,
-		P: BuildParachainContext<B, E, R>,
+		P: BuildParachainContext,
 		P::ParachainContext: Send + 'static,
 		<P::ParachainContext as ParachainContext>::ProduceCandidate: Send,
 		Extrinsic: service::Codec + Send + Sync + 'static,
-		E: Clone + Send + Sync,
-		R: Send + Sync,
 {
 	let (service, handles) = service;
 	let spawner = service.spawn_task_handle();
@@ -344,18 +339,16 @@ fn build_collator_service<S, P, Extrinsic, B, E, R>(
 
 /// Async function that will run the collator node with the given `RelayChainContext` and `ParachainContext`
 /// built by the given `BuildParachainContext` and arguments to the underlying polkadot node.
-pub async fn start_collator<P, B, E, R>(
+pub async fn start_collator<P>(
 	build_parachain_context: P,
 	para_id: ParaId,
 	key: Arc<CollatorPair>,
 	config: Configuration,
 ) -> Result<(), polkadot_service::Error>
 where
-	P: BuildParachainContext<B, E, R>,
+	P: BuildParachainContext,
 	P::ParachainContext: Send + 'static,
 	<P::ParachainContext as ParachainContext>::ProduceCandidate: Send,
-	E: Clone + Send + Sync,
-	R: Send + Sync,
 {
 	let is_kusama = config.chain_spec.is_kusama();
 	match (is_kusama, &config.role) {
